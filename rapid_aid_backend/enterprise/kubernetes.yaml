@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rapid-aid-backend
+  namespace: default
+  labels:
+    app: rapid-aid-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rapid-aid-backend
+  template:
+    metadata:
+      labels:
+        app: rapid-aid-backend
+    spec:
+      containers:
+      - name: backend-container
+        image: munnashaheem96/rapid-aid-backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: NODE_ENV
+          value: "production"
+        - name: FIREBASE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: firebase-credentials
+              key: service-account-json
+        resources:
+          limits:
+            cpu: "1"
+            memory: 512Mi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rapid-aid-backend-service
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: rapid-aid-backend
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rapid-aid-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: api.rapid-aid.gov.in
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: rapid-aid-backend-service
+            port:
+              number: 80

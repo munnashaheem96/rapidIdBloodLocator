@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rapid_aid/screens/home_screen.dart';
 import 'package:rapid_aid/screens/signup_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:rapid_aid/main.dart'; // ✅ IMPORTANT (for navigatorKey)
 
 class LoginScreen extends StatelessWidget {
   LoginScreen({super.key});
@@ -74,17 +75,17 @@ class LoginScreen extends StatelessWidget {
                           ),
                           child: Column(
                             children: [
-                              // 📧 Email
+                              /// 📧 EMAIL
                               TextField(
-                                controller: emailController, // ✅ FIX
+                                controller: emailController,
                                 decoration: input("Email", Icons.email),
                               ),
 
                               const SizedBox(height: 20),
 
-                              // 🔒 Password
+                              /// 🔒 PASSWORD
                               TextField(
-                                controller: passwordController, // ✅ FIX
+                                controller: passwordController,
                                 obscureText: true,
                                 decoration: input("Password", Icons.lock),
                               ),
@@ -104,7 +105,7 @@ class LoginScreen extends StatelessWidget {
 
                               const SizedBox(height: 20),
 
-                              // 🔴 LOGIN BUTTON
+                              /// 🔴 LOGIN BUTTON
                               SizedBox(
                                 width: double.infinity,
                                 height: 50,
@@ -116,39 +117,39 @@ class LoginScreen extends StatelessWidget {
                                     ),
                                   ),
                                   onPressed: () async {
-                                    String email = emailController.text.trim();
-                                    String password = passwordController.text
-                                        .trim();
+                                    String email =
+                                        emailController.text.trim();
+                                    String password =
+                                        passwordController.text.trim();
 
                                     if (email.isEmpty || password.isEmpty) {
-                                      showSnack(
-                                        context,
-                                        "Enter email & password",
-                                      );
+                                      showSnack("Enter email & password");
                                       return;
                                     }
 
                                     try {
                                       await FirebaseAuth.instance
                                           .signInWithEmailAndPassword(
-                                            email: email,
-                                            password: password,
-                                          );
+                                        email: email,
+                                        password: password,
+                                      );
 
-                                      Navigator.pushReplacement(
-                                        context,
+                                      showSnack("Login successful");
+
+                                      navigatorKey.currentState!
+                                          .pushReplacement(
                                         MaterialPageRoute(
-                                          builder: (_) => const HomeScreen(),
+                                          builder: (_) =>
+                                              const HomeScreen(),
                                         ),
                                       );
                                     } on FirebaseAuthException catch (e) {
                                       showSnack(
-                                        context,
                                         e.message ??
                                             "Invalid email or password",
                                       );
                                     } catch (e) {
-                                      showSnack(context, "Login failed");
+                                      showSnack("Login failed");
                                     }
                                   },
                                   child: const Text(
@@ -201,6 +202,7 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
+  /// 🔧 INPUT DECORATION
   InputDecoration input(String text, IconData icon) {
     return InputDecoration(
       labelText: text,
@@ -214,7 +216,14 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
-  void showSnack(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  /// 🔥 GLOBAL SAFE SNACKBAR
+  void showSnack(String msg) {
+    final ctx = navigatorKey.currentContext;
+
+    if (ctx != null) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(content: Text(msg)),
+      );
+    }
   }
 }

@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:rapid_aid/screens/home_screen.dart';
+import 'package:rapid_aid/theme/app_theme.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -18,262 +22,80 @@ class _SignupScreenState extends State<SignupScreen> {
   final phoneController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
-
   final bloodGroupController = TextEditingController();
-  final dobController = TextEditingController();
-  final lastDonatedController = TextEditingController();
 
-  final allergiesController = TextEditingController();
-  final diseasesController = TextEditingController();
-  final medicationsController = TextEditingController();
-
-  bool hasTattoo = false;
+  bool showPassword = false;
   bool isLoading = false;
+
+  Map<String, dynamic> locationData = {};
+  List<String> states = [];
+  List<String> districts = [];
+
+  String? selectedState;
+  String? selectedDistrict;
 
   @override
   void initState() {
     super.initState();
-
-    // 🔔 Request notification permission
-    FirebaseMessaging.instance.requestPermission();
+    loadLocationData();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      body: Stack(
-        children: [
-          // 🔴 Background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFD32F2F), Color(0xFFFF5252)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-          ),
+  /// 📍 Load State/District JSON
+  Future<void> loadLocationData() async {
+    try {
+      final response = await rootBundle.loadString('assets/india_locations.json');
+      final data = jsonDecode(response);
 
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
-
-                  const Text(
-                    "Create Account",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  Container(
-                    padding: const EdgeInsets.all(25),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(30),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: nameController,
-                          decoration: input("Full Name", Icons.person),
-                        ),
-                        const SizedBox(height: 15),
-
-                        TextField(
-                          controller: emailController,
-                          decoration: input("Email", Icons.email),
-                        ),
-                        const SizedBox(height: 15),
-
-                        TextField(
-                          controller: phoneController,
-                          keyboardType: TextInputType.phone,
-                          decoration: input("Phone", Icons.phone),
-                        ),
-                        const SizedBox(height: 15),
-
-                        DropdownButtonFormField<String>(
-                          decoration: input("Blood Group", Icons.bloodtype),
-                          items:
-                              [
-                                'A+',
-                                'A-',
-                                'B+',
-                                'B-',
-                                'AB+',
-                                'AB-',
-                                'O+',
-                                'O-',
-                              ].map((bg) {
-                                return DropdownMenuItem(
-                                  value: bg,
-                                  child: Text(bg),
-                                );
-                              }).toList(),
-                          onChanged: (val) {
-                            bloodGroupController.text = val!;
-                          },
-                        ),
-                        const SizedBox(height: 15),
-
-                        TextField(
-                          controller: dobController,
-                          readOnly: true,
-                          decoration: input("Date of Birth", Icons.cake),
-                          onTap: () async {
-                            DateTime? picked = await showDatePicker(
-                              context: context,
-                              initialDate: DateTime(2005),
-                              firstDate: DateTime(1950),
-                              lastDate: DateTime.now(),
-                            );
-                            if (picked != null) {
-                              dobController.text =
-                                  "${picked.day}/${picked.month}/${picked.year}";
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 15),
-
-                        TextField(
-                          controller: lastDonatedController,
-                          readOnly: true,
-                          decoration: input(
-                            "Last Donated Date",
-                            Icons.calendar_today,
-                          ),
-                          onTap: () async {
-                            DateTime? picked = await showDatePicker(
-                              context: context,
-                              initialDate: DateTime.now(),
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime.now(),
-                            );
-                            if (picked != null) {
-                              lastDonatedController.text =
-                                  "${picked.day}/${picked.month}/${picked.year}";
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 15),
-
-                        TextField(
-                          controller: allergiesController,
-                          decoration: input(
-                            "Allergies (if any)",
-                            Icons.warning,
-                          ),
-                        ),
-                        const SizedBox(height: 15),
-
-                        TextField(
-                          controller: medicationsController,
-                          decoration: input("Medications", Icons.medication),
-                        ),
-                        const SizedBox(height: 15),
-
-                        TextField(
-                          controller: diseasesController,
-                          decoration: input("Diseases", Icons.local_hospital),
-                        ),
-                        const SizedBox(height: 15),
-
-                        SwitchListTile(
-                          title: const Text("Do you have a tattoo?"),
-                          value: hasTattoo,
-                          onChanged: (val) {
-                            setState(() => hasTattoo = val);
-                          },
-                        ),
-
-                        const SizedBox(height: 15),
-
-                        TextField(
-                          controller: passwordController,
-                          obscureText: true,
-                          decoration: input("Password", Icons.lock),
-                        ),
-                        const SizedBox(height: 15),
-
-                        TextField(
-                          controller: confirmPasswordController,
-                          obscureText: true,
-                          decoration: input(
-                            "Confirm Password",
-                            Icons.lock_outline,
-                          ),
-                        ),
-
-                        const SizedBox(height: 25),
-
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            minimumSize: const Size(double.infinity, 50),
-                          ),
-                          onPressed: isLoading ? null : signup,
-                          child: isLoading
-                              ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
-                              : const Text(
-                                  "SIGN UP",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+      setState(() {
+        locationData = data;
+        states = data.keys.toList();
+      });
+    } catch (e) {
+      debugPrint("Error loading location json: $e");
+    }
   }
 
-  // 🔥 GET LOCATION + FCM TOKEN
-  Future<Map<String, dynamic>> getUserMeta() async {
+  /// 📍 Get Location + Token
+  Future<Map<String, dynamic>> getMeta() async {
+    LocationPermission permission = await Geolocator.requestPermission();
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      throw Exception("Location permission denied");
+    }
+
     Position pos = await Geolocator.getCurrentPosition();
     String? token = await FirebaseMessaging.instance.getToken();
 
-    return {'lat': pos.latitude, 'lng': pos.longitude, 'fcmToken': token};
+    return {
+      "lat": pos.latitude,
+      "lng": pos.longitude,
+      "fcmToken": token
+    };
   }
 
+  /// 🔐 SIGNUP
   Future<void> signup() async {
-    String name = nameController.text.trim();
-    String email = emailController.text.trim();
-    String phone = phoneController.text.trim();
-    String password = passwordController.text.trim();
-    String confirmPassword = confirmPasswordController.text.trim();
-
-    if (name.isEmpty ||
-        email.isEmpty ||
-        phone.isEmpty ||
-        password.isEmpty ||
-        confirmPassword.isEmpty ||
-        bloodGroupController.text.isEmpty ||
-        dobController.text.isEmpty) {
-      showSnack("Fill all required fields");
+    if (nameController.text.isEmpty ||
+        emailController.text.isEmpty ||
+        phoneController.text.isEmpty ||
+        bloodGroupController.text.isEmpty) {
+      showSnack("Please fill all fields");
       return;
     }
 
-    if (password != confirmPassword) {
+    if (passwordController.text.length < 6) {
+      showSnack("Password must be at least 6 characters");
+      return;
+    }
+
+    if (passwordController.text != confirmPasswordController.text) {
       showSnack("Passwords do not match");
+      return;
+    }
+
+    if (selectedState == null || selectedDistrict == null) {
+      showSnack("Please select your state and district");
       return;
     }
 
@@ -281,61 +103,310 @@ class _SignupScreenState extends State<SignupScreen> {
 
     try {
       UserCredential user = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(email: email, password: password);
+          .createUserWithEmailAndPassword(
+              email: emailController.text.trim(),
+              password: passwordController.text.trim());
 
-      // 🔥 GET META
-      var meta = await getUserMeta();
+      var meta = await getMeta();
 
       await FirebaseFirestore.instance
-          .collection('users')
+          .collection("users")
           .doc(user.user!.uid)
           .set({
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'bloodGroup': bloodGroupController.text,
-            'dob': dobController.text,
-            'lastDonated': lastDonatedController.text,
-            'allergies': allergiesController.text,
-            'medications': medicationsController.text,
-            'diseases': diseasesController.text,
-            'hasTattoo': hasTattoo,
+        "name": nameController.text.trim(),
+        "email": emailController.text.trim(),
+        "phone": phoneController.text.trim(),
+        "bloodGroup": bloodGroupController.text,
 
-            // 🔥 IMPORTANT
-            'lat': meta['lat'],
-            'lng': meta['lng'],
-            'fcmToken': meta['fcmToken'],
+        "state": selectedState,
+        "district": selectedDistrict,
 
-            'createdAt': Timestamp.now(),
-          });
+        "lat": meta["lat"],
+        "lng": meta["lng"],
+        "fcmToken": meta["fcmToken"],
 
-      showSnack("Signup successful");
+        "isDonor": true,
+        "createdAt": Timestamp.now(),
+      });
+
+      showSnack("Account created successfully!");
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } catch (e) {
-      showSnack(e.toString());
+      showSnack(e.toString().replaceAll("Exception: ", ""));
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
-
-    setState(() => isLoading = false);
   }
 
-  InputDecoration input(String text, IconData icon) {
-    return InputDecoration(
-      labelText: text,
-      prefixIcon: Icon(icon, color: Colors.red),
-      filled: true,
-      fillColor: Colors.grey.shade100,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15),
-        borderSide: BorderSide.none,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.charcoal,
+      body: SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: AppTheme.darkGradient,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 24),
+                    Text(
+                      "Create Account",
+                      textAlign: CenterTheme.alignment,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Register as a volunteer/donor in seconds",
+                      textAlign: CenterTheme.alignment,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+
+                    /// FORM CARD
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          input(nameController, "Full Name", Icons.person_outline),
+                          input(emailController, "Email Address", Icons.email_outlined),
+                          input(phoneController, "Phone Number", Icons.phone_outlined, type: TextInputType.phone),
+
+                          /// BLOOD GROUP DROPDOWN
+                          DropdownButtonFormField<String>(
+                            decoration: const InputDecoration(
+                              labelText: "Blood Group",
+                              prefixIcon: Icon(Icons.bloodtype_outlined),
+                            ),
+                            items: [
+                              'A+','A-','B+','B-','O+','O-','AB+','AB-'
+                            ].map((e) {
+                              return DropdownMenuItem(
+                                  value: e, child: Text(e, style: GoogleFonts.poppins()));
+                            }).toList(),
+                            onChanged: (val) => bloodGroupController.text = val!,
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          /// PASSWORD
+                          TextField(
+                            controller: passwordController,
+                            obscureText: !showPassword,
+                            decoration: InputDecoration(
+                              labelText: "Password",
+                              prefixIcon: const Icon(Icons.lock_outlined),
+                              suffixIcon: IconButton(
+                                icon: Icon(showPassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined),
+                                onPressed: () {
+                                  setState(() {
+                                    showPassword = !showPassword;
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          /// CONFIRM PASSWORD
+                          TextField(
+                            controller: confirmPasswordController,
+                            obscureText: !showPassword,
+                            decoration: const InputDecoration(
+                              labelText: "Confirm Password",
+                              prefixIcon: Icon(Icons.lock_clock_outlined),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          /// STATE DROPDOWN
+                          DropdownButtonFormField<String>(
+                            value: selectedState,
+                            hint: Text("Select State", style: GoogleFonts.poppins(fontSize: 14)),
+                            items: states.map((s) {
+                              return DropdownMenuItem(
+                                  value: s, child: Text(s, style: GoogleFonts.poppins(fontSize: 13)));
+                            }).toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                selectedState = val;
+                                districts =
+                                    List<String>.from(locationData[val]);
+                                selectedDistrict = null;
+                              });
+                            },
+                            decoration: const InputDecoration(
+                              labelText: "State",
+                              prefixIcon: Icon(Icons.map_outlined),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          /// DISTRICT DROPDOWN
+                          DropdownButtonFormField<String>(
+                            value: selectedDistrict,
+                            hint: Text("Select District", style: GoogleFonts.poppins(fontSize: 14)),
+                            items: districts.map((d) {
+                              return DropdownMenuItem(
+                                  value: d, child: Text(d, style: GoogleFonts.poppins(fontSize: 13)));
+                            }).toList(),
+                            onChanged: (val) =>
+                                setState(() => selectedDistrict = val),
+                            decoration: const InputDecoration(
+                              labelText: "District",
+                              prefixIcon: Icon(Icons.location_city_outlined),
+                            ),
+                          ),
+
+                          const SizedBox(height: 28),
+
+                          /// SIGN UP ACTION BUTTON
+                          Container(
+                            height: 54,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              gradient: AppTheme.primaryGradient,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primary.withOpacity(0.25),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8),
+                                )
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              onPressed: isLoading ? null : signup,
+                              child: isLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(
+                                      "SIGN UP",
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Already have an account? ",
+                                style: GoogleFonts.poppins(
+                                  color: AppTheme.textSecondary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => Navigator.pop(context),
+                                child: Text(
+                                  "Login",
+                                  style: GoogleFonts.poppins(
+                                    color: AppTheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget input(TextEditingController c, String hint, IconData icon, {TextInputType type = TextInputType.text}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextField(
+        controller: c,
+        keyboardType: type,
+        decoration: InputDecoration(
+          labelText: hint,
+          prefixIcon: Icon(icon),
+        ),
       ),
     );
   }
 
   void showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+        ),
+        backgroundColor: AppTheme.charcoal,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
   }
 }
+
+class CenterTheme {
+  static const alignment = TextAlign.center;
+}
